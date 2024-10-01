@@ -1,0 +1,157 @@
+import random
+import time
+
+# Class to represent a card
+class Card:
+    def __init__(self, value, suit, row=None, col=None):
+        self.value = value
+        self.suit = suit
+        self.row = row  # Pyramid cards only: row index
+        self.col = col  # Pyramid cards only: column index
+        self.removed = False  # To track if the card has been removed
+
+    def __repr__(self):
+        value_str = {1: "A", 11: "J", 12: "Q", 13: "K"}.get(self.value, str(self.value))
+        return f"{value_str}{self.suit}"
+
+    def is_exposed(self, pyramid):
+        if self.row is None or self.col is None:  # Stockpile cards are always exposed
+            return True
+        if self.row == len(pyramid) - 1:  # Cards in the bottom row are always exposed
+            return True
+        below_left = pyramid[self.row + 1][self.col]
+        below_right = pyramid[self.row + 1][self.col + 1]
+        return below_left.removed and below_right.removed
+
+
+# Function to convert a card string like "7s" to its value and suit
+def card_value(card_str):
+    value_str = card_str[:-1].upper()
+    if value_str == "A":
+        return 1
+    elif value_str == "J":
+        return 11
+    elif value_str == "Q":
+        return 12
+    elif value_str == "K":
+        return 13
+    else:
+        return int(value_str)
+
+
+# Input for the pyramid (7 rows)
+def get_pyramid_input():
+    pyramid_input = []
+    for row_num in range(1, 8):  # Rows 1 to 7
+        while True:
+            row_input = input(f"Enter {row_num} cards for row {row_num}: ").split()
+            if len(row_input) == row_num:
+                pyramid_input.extend(row_input)  # Add valid row input to pyramid list
+                break
+            else:
+                print(f"Invalid input! You need to enter exactly {row_num} cards for row {row_num}. Please try again.")
+    return pyramid_input
+
+
+# Input for the stockpile (manually or randomly generated)
+def get_stockpile_input(pyramid_card_strings):
+    while True:
+        choice = input("Do you want to (1) enter the stockpile manually or (2) generate it randomly? Enter 1 or 2: ")
+        if choice == "1":
+            while True:
+                stock_input = input(f"Enter 24 stockpile cards (without duplicates from the pyramid): ").split()
+                if len(stock_input) == 24 and all(card not in pyramid_card_strings for card in stock_input):
+                    return stock_input
+                else:
+                    print("Invalid input! Ensure 24 cards and no duplicates with the pyramid. Please try again.")
+        elif choice == "2":
+            # Generate stockpile from remaining deck
+            full_deck = generate_full_deck()
+            remaining_cards = [card for card in full_deck if card not in pyramid_card_strings]
+            return random.sample(remaining_cards, 24)
+        else:
+            print("Invalid choice! Please enter 1 or 2.")
+
+
+# Generate a shuffled deck (without jokers)
+def generate_full_deck():
+    suits = ['s', 'h', 'd', 'c']  # Four suits
+    values = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']  # 13 values
+    deck = [f"{value}{suit}" for suit in suits for value in values]
+    return deck  # No need to shuffle since user input is involved
+
+
+# Function to generate the pyramid structure
+def generate_pyramid(pyramid_card_strings):
+    pyramid = []
+    row_idx = 0
+    for row in range(1, 8):  # Pyramid has 7 rows
+        pyramid_row = []
+        for col in range(row):
+            card_str = pyramid_card_strings[row_idx]
+            value = card_value(card_str)
+            suit = card_str[-1]
+            pyramid_row.append(Card(value, suit, row - 1, col))
+            row_idx += 1
+        pyramid.append(pyramid_row)
+    return pyramid
+
+
+# Function to check if the pyramid is solved (all cards are removed)
+def is_solved(pyramid):
+    return all(card.removed for row in pyramid for card in row)
+
+
+# The recursive function that solves the pyramid solitaire
+def solve_pyramid(pyramid, stock, stock_index, stock_uses, moves=None, depth=0, max_depth=1000, start_time=None, memo=None, cycle_count=0, max_cycles=10, wastepile=None):
+    if moves is None:
+        moves = []
+    if memo is None:
+        memo = set()  # Create memoization set to store visited states
+    if wastepile is None:
+        wastepile = []  # Initialize wastepile to store removed cards
+    if start_time is None:
+        start_time = time.time()
+
+    # Serialize current game state to avoid revisiting it
+    game_state = (tuple(tuple(card.removed for card in row) for row in pyramid), stock_index, stock_uses)
+    
+    if game_state in memo:
+        return False  # We've been here before, avoid re-exploring this path
+
+    memo.add(game_state)  # Add the current state to memoization
+
+    # Time limit check
+    if time.time() - start_time > 250:
+        print("Time limit exceeded. Stopping search.")
+        return False
+
+    # Recursion depth limit
+    if depth > max_depth:
+        print(f"Max depth {max_depth} reached, backtracking...")
+        return False
+
+    # Check if the pyramid is solved
+    if is_solved(pyramid):
+        print("Solution found!")
+        print("Steps to solve the pyramid:")
+        for step, move in enumerate(moves, 1):
+            print(f"Step {step}: Removed {move}")
+        print("\nWastepile (removed card pairs):", wastepile)
+        return True
+
+    # Continue with the rest of the code for solving logic...
+    # (Pair removal logic would go here)
+    return False
+
+
+# Main function to take inputs and run the solver
+def main():
+    # Get pyramid input from the user
+    pyramid_card_strings = get_pyramid_input()
+
+    # Generate the pyramid
+    pyramid = generate_pyramid(pyramid_card_strings)
+
+    # Get stockpile input from user (manual or random)
+    stock_card_strings = get
